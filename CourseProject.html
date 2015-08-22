@@ -101,8 +101,8 @@ pml_testing &lt;- read.csv(test_url, header = T, sep = &quot;,&quot;,  na.string
 library(caret)</code></pre>
 <pre class="r"><code># Since the data set is large I am going to ommit as predictors the columns with NAs
 na &lt;- apply(pml_data, 2, is.na)
-sumna &lt;- apply(na, 2, sum); rm(na)
-index &lt;- which(sumna != 0); rm(sumna)
+sumna &lt;- apply(na, 2, sum)
+index &lt;- which(sumna != 0) 
 
 # I am also ommiting the irrelevat columns that keep logisitc info for the subjects {columns 1:7}
 pml_data &lt;- subset(pml_data, select = - c(1:7, index))
@@ -112,10 +112,11 @@ pml_testing &lt;- subset(pml_testing, select = - c(1:7, index))
 # is impervious to this type of predictor since it would never be used in a split.
 index &lt;- nearZeroVar(pml_data)
 if (length(index) != 0) {
+  sprintf(&quot;Found %d near-zero variance predictors&quot;, length(index))
   pml_data &lt;- subset(pml_data, select = -c(index))
   pml_testing &lt;- subset(pml_data, select = -c(index))
-}
-rm(index)</code></pre>
+} else {sprintf(&quot;Did not find any near-zero variance prdictors&quot;)}</code></pre>
+<pre><code>## [1] &quot;Did not find any near-zero variance prdictors&quot;</code></pre>
 <p>The dimensions of the data sets we will use are therefore:</p>
 <pre class="r"><code>dim(pml_data)</code></pre>
 <pre><code>## [1] 19622    53</code></pre>
