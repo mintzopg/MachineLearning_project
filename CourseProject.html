@@ -115,8 +115,8 @@ if (length(index) != 0) {
   sprintf(&quot;Found %d near-zero variance predictors&quot;, length(index))
   pml_data &lt;- subset(pml_data, select = -c(index))
   pml_testing &lt;- subset(pml_data, select = -c(index))
-} else {sprintf(&quot;Did not find any near-zero variance prdictors&quot;)}</code></pre>
-<pre><code>## [1] &quot;Did not find any near-zero variance prdictors&quot;</code></pre>
+} else {sprintf(&quot;Did not find any near-zero variance predictors&quot;)}</code></pre>
+<pre><code>## [1] &quot;Did not find any near-zero variance predictors&quot;</code></pre>
 <p>The dimensions of the data sets we will use are therefore:</p>
 <pre class="r"><code>dim(pml_data)</code></pre>
 <pre><code>## [1] 19622    53</code></pre>
