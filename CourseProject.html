@@ -90,7 +90,10 @@ pml_testing &lt;- read.csv(test_url, header = T, sep = &quot;,&quot;,  na.string
 </div>
 <div id="data-preprocessing" class="section level2">
 <h2>Data preprocessing</h2>
-<p>We can see that the dimensions of our data are <strong>19622 observations of 160 variables</strong>. We have 159 possible predictors for this <strong>classification</strong> problem to predict the exercise manner.</p>
+<p>We can see that the dimensions of our data are,</p>
+<pre class="r"><code>dim(pml_data)</code></pre>
+<pre><code>## [1] 19622   160</code></pre>
+<p>We have 159 possible predictors for this <strong>classification</strong> problem to predict the exercise manner.</p>
 <p>Since all these variables refer to body movement measurements from different sensors during movement, will be likely high correlated. We will use different classification tree algorithms in our approach, because they are resistant to multicolinearity, and they don’t impose any heavy data preprocessing steps.</p>
 <p>Note that, in general, the functions in the caret package that we will use, assume that there are no missing values in the data or that these values have been handled via imputation or other means.</p>
 <p>We next eliminate all columns with NA variables and will base our predictions on the remaining variables, to see if we get a good accuracy level. Also we will exclude any near-zero variance predictors, because a tree based model is impervious to this predictor type since it would never be used in a split.</p>
@@ -113,6 +116,9 @@ if (length(index) != 0) {
   pml_testing &lt;- subset(pml_data, select = -c(index))
 }
 rm(index)</code></pre>
+<p>The dimensions of the data sets we will use are therefore:</p>
+<pre class="r"><code>dim(pml_data)</code></pre>
+<pre><code>## [1] 19622    53</code></pre>
 </div>
 <div id="using-cross-validation" class="section level2">
 <h2>Using Cross-Validation</h2>
@@ -124,6 +130,26 @@ validation &lt;- pml_data[-inTrain, ]
 # vector of predictors
 predictors &lt;- names(pml_data)[names(pml_data) != &quot;classe&quot;]
 rm(pml_data) # this in no longer needed</code></pre>
+<p>Our predictor variables are the following:</p>
+<pre class="r"><code>predictors</code></pre>
+<pre><code>##  [1] &quot;roll_belt&quot;            &quot;pitch_belt&quot;           &quot;yaw_belt&quot;            
+##  [4] &quot;total_accel_belt&quot;     &quot;gyros_belt_x&quot;         &quot;gyros_belt_y&quot;        
+##  [7] &quot;gyros_belt_z&quot;         &quot;accel_belt_x&quot;         &quot;accel_belt_y&quot;        
+## [10] &quot;accel_belt_z&quot;         &quot;magnet_belt_x&quot;        &quot;magnet_belt_y&quot;       
+## [13] &quot;magnet_belt_z&quot;        &quot;roll_arm&quot;             &quot;pitch_arm&quot;           
+## [16] &quot;yaw_arm&quot;              &quot;total_accel_arm&quot;      &quot;gyros_arm_x&quot;         
+## [19] &quot;gyros_arm_y&quot;          &quot;gyros_arm_z&quot;          &quot;accel_arm_x&quot;         
+## [22] &quot;accel_arm_y&quot;          &quot;accel_arm_z&quot;          &quot;magnet_arm_x&quot;        
+## [25] &quot;magnet_arm_y&quot;         &quot;magnet_arm_z&quot;         &quot;roll_dumbbell&quot;       
+## [28] &quot;pitch_dumbbell&quot;       &quot;yaw_dumbbell&quot;         &quot;total_accel_dumbbell&quot;
+## [31] &quot;gyros_dumbbell_x&quot;     &quot;gyros_dumbbell_y&quot;     &quot;gyros_dumbbell_z&quot;    
+## [34] &quot;accel_dumbbell_x&quot;     &quot;accel_dumbbell_y&quot;     &quot;accel_dumbbell_z&quot;    
+## [37] &quot;magnet_dumbbell_x&quot;    &quot;magnet_dumbbell_y&quot;    &quot;magnet_dumbbell_z&quot;   
+## [40] &quot;roll_forearm&quot;         &quot;pitch_forearm&quot;        &quot;yaw_forearm&quot;         
+## [43] &quot;total_accel_forearm&quot;  &quot;gyros_forearm_x&quot;      &quot;gyros_forearm_y&quot;     
+## [46] &quot;gyros_forearm_z&quot;      &quot;accel_forearm_x&quot;      &quot;accel_forearm_y&quot;     
+## [49] &quot;accel_forearm_z&quot;      &quot;magnet_forearm_x&quot;     &quot;magnet_forearm_y&quot;    
+## [52] &quot;magnet_forearm_z&quot;</code></pre>
 <p>By default the caret package uses Bootstrap with 25 iterations used as the resampling scheme and we will use this setting here along with parallel processing on 2 cores, to permit model training in a reasonable amount of time for our computer setting (<em>laptop with 2-core, i7 @ 2.4 GHz and 8 Gb RAM</em>). <em>We can also enable parallel processing using the code to speed up the runing time (not done in this execution though):</em></p>
 <pre class="r"><code>library(doMC)
 registerDoMC(cores = 2)</code></pre>
