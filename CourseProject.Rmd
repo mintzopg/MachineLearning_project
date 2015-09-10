@@ -1,0 +1,219 @@
+---
+title: "Machine Learning Course project"
+author: "Giorgos Mintzopoulos"
+date: "August 20, 2015"
+output: html_document
+---
+
+## Introduction
+
+This assignment is part of the Coursera Course "Practical Machine Learning". 
+
+## Scope
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website [Groupware@LES Human Activity Recognition ](http://groupware.les.inf.puc-rio.br/har) *see the section on the Weight Lifting Exercise Dataset*. 
+
+The goal is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. We may use any of the other variables to predict with. We will build a prediction model and will use it to predict 20 different test cases. 
+
+```{r setDir, include=FALSE}
+setwd("~/Courses/JH_DS_Machine_Learning/project")
+```
+
+## Datasets
+A training and a test dataset are given for this project and can be dowloaded from the internet using the code:
+```{r readData, cache=TRUE}
+library(curl, quietly=T)
+train_url <- curl("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+test_url <- curl("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+
+pml_data <- read.csv(train_url, header = T, sep = ",",  na.strings = c("", "NA", "#DIV/0!"))  # training data set
+pml_testing <- read.csv(test_url, header = T, sep = ",",  na.strings = c("", "NA", "#DIV/0!"))  # testing data set
+```
+
+A large number of observations contain NA, empty and invalid values. All these have been loaded as NA using the na.strings = c("", "NA", "#DIV/0!") option shown in the code above.
+
+## Data preprocessing
+
+We can see that the dimensions of our data are,
+```{r}
+dim(pml_data)
+```
+
+We have 159 possible predictors for this **classification** problem to predict the exercise manner which is of data type factor with 5 levels,  named "classe".
+
+```{r}
+class(pml_data$classe); levels(pml_data$classe)
+```
+
+Since all these variables refer to body movement measurements from different sensors during movement, will be likely high correlated. We will use different classification tree algorithms in our approach, because they are resistant to multicolinearity, and they don't impose any heavy data preprocessing steps. 
+
+Note that, in general, the functions in the caret package that we will use, assume that there are no missing values in the data or that these values have been handled via imputation or other means.
+
+We next eliminate all columns with NA variables and will base our predictions on the remaining variables, to see if we get a good accuracy level. Also we will exclude any near-zero variance predictors, because a tree based model is impervious to this predictor type since it would never be used in a split.
+
+```{r load caret, message=FALSE}
+#load caret package
+library(caret)
+```
+
+```{r remove NAs, cache=TRUE}
+# Since the data set is large I am going to ommit as predictors the columns with NAs
+na <- apply(pml_data, 2, is.na)
+sumna <- apply(na, 2, sum)
+index <- which(sumna != 0) 
+
+# I am also ommiting the irrelevat columns that keep logisitc info for the subjects {columns 1:7}
+pml_data <- subset(pml_data, select = - c(1:7, index))
+pml_testing <- subset(pml_testing, select = - c(1:7, index))
+
+# next I filter for near-zero variance predictors, since a tree based model (classification) ...
+# is impervious to this type of predictor since it would never be used in a split.
+index <- nearZeroVar(pml_data)
+if (length(index) != 0) {
+  sprintf("Found %d near-zero variance predictors", length(index))
+  pml_data <- subset(pml_data, select = -c(index))
+  pml_testing <- subset(pml_data, select = -c(index))
+} else {sprintf("Did not find any near-zero variance predictors")}
+```
+
+```{r, echo=FALSE}
+rm(na)
+rm(sumna)
+rm(index)
+```
+
+The dimensions of the data sets we will use are therefore:
+```{r}
+dim(pml_data)
+```
+
+## Using Cross-Validation
+
+We will use a typical cross-validation split of the pml_data dataset into a training set (60% of the observations) and validation dataset (remaining 40%). We do this using the caret package.
+
+```{r produce training and validations sets, cache=TRUE}
+# split the training set into myTraining 60% and myValidation 40% sets
+inTrain <- createDataPartition(y = pml_data$classe, p = 0.6, list = F)
+training <- pml_data[inTrain, ]
+validation <- pml_data[-inTrain, ]
+# vector of predictors
+predictors <- names(pml_data)[names(pml_data) != "classe"]
+rm(pml_data) # this in no longer needed
+```
+
+Our predictor variables are the following:
+```{r}
+predictors
+```
+
+By default the caret package uses Bootstrap with 25 iterations used as the resampling scheme and we will use this setting here along with parallel processing on 2 cores, to permit model training in a reasonable amount of time for our computer setting (_laptop with 2-core, i7 @ 2.4 GHz and 8 Gb RAM_). _We can also enable parallel processing using the code to speed up the runing time (not done in this execution though because I am using Relution R distribution which works this way by default):_
+
+```{r doMC, eval=FALSE}
+library(doMC)
+registerDoMC(cores = 2)
+```
+
+## Model fitting using caret and randomForest packages
+
+We will fit several tree models to see the accuracy they provide. Namely we will fit:
+
+Model            |   Method     |  Package
+--------         |-----------   |----------
+CART             |   rpart      |   caret
+Bagging          |   treebag    |   caret
+Random Forest    |   rf         |   randomForest
+Ranodm Forest    |   rf         |   caret
+Boosted          |   gbm        |   caret
+
+
+The default performance metrics and other option for classification will be used in the caret train function. We use accuracy  as reported from the confusionMatrix function to select the better algorithm to use. This is not a strict model comparison as this would require the same settings for all models (parameters, training samples), as this is not our objective here. Our approach is to use the model reporting a very high accuracy on the prediction using the validation set, and runs in a reasonable amount of time.
+
+_Note: The ConfusionMAtrix()  functions calculates a cross-tabulation of observed and predicted classes with associated statistics._
+
+### Classification And Regression Tree
+
+```{r fit CART, cache=TRUE}
+#CART; method = raprt
+system.time(
+  fit_cart <- train(classe ~., method = "rpart", data = training)
+)
+fit_cart
+confusionMatrix(validation$classe, predict(fit_cart, validation))
+```
+
+This simple recursive tree does not return a good accuracy level.
+
+### Bagging
+
+```{r fir Bagged, cache=TRUE, warning=FALSE}
+# Bagged Tree, method = treebag
+system.time(
+  fit_bagged <- train(classe ~., method = "treebag", data = training, verbose = F)
+)
+fit_bagged
+confusionMatrix(validation$classe, predict(fit_bagged, validation))
+```
+
+Using Bagging, the accuracy of the prediction on the validation set increases drastically.
+
+### Random Forest
+
+```{r fit_fror1, cache=TRUE}
+# Random Forest, method = rf
+
+## (1)  using randomForest package
+library(randomForest, verbose = F)
+
+system.time(
+  fit_rfor1 <- randomForest(classe ~., data = training, importance = T) 
+)
+fit_rfor1
+confusionMatrix(validation$classe, predict(fit_rfor1, validation))
+```
+
+Random forest algorithm returns an accuracy level almost 100%.
+
+We fit also another random forest using this time the caret package and "rf" method. This is computationaly more demanding because of the way caret package uses bootstrap.
+
+```{r fit_rfor2, cache=TRUE}
+## (2)  using caret package
+system.time(
+  fit_rfor2 <- train(classe ~., method = "rf", data = training)
+)
+fit_rfor2
+confusionMatrix(validation$classe, predict(fit_rfor2, validation))
+```
+
+We see similar accuracy leveles as using the randomForest library.
+
+### Boosting
+
+```{r fit Boosted, cache=TRUE}
+# Boosted tree, method = gbm
+system.time(
+  fit_boosted <- train(classe ~., method = "gbm", data = training, verbose = F)
+)
+fit_boosted
+confusionMatrix(validation$classe, predict(fit_boosted, validation))
+```
+
+Boosting fit algorithm also provides very good accuracy levels.
+
+## Model Selection and application on Testing data set
+
+Based on the confusionMatrix results we choose to use the random forest model build with randomForest library, __fir_rfor1__ because not only returns the best accuracy on the validation set but also runs very fast compared to the slower caret package training times.
+
+We can see the most important predictors chosen by our model and the mean decrease Gini plots for the top 20 most important predictors in the next image:
+```{r VariImp plot, cache=TRUE}
+varImpPlot(fit_rfor1, n.var = 20, type = 2, col = "blue", pch = 19, cex = 0.9, main ="Variable Importance of top 20 predictors") # variable importance plot
+```
+
+The model was applied on the testing data set.
+
+```{r predict final, cache=TRUE}
+# run the random forest model on the testing data
+y <- predict(fit_rfor1, pml_testing)
+y
+```
+
+It predicted successfully all the cases (20/20) .
